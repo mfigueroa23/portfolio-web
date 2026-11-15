@@ -37,7 +37,7 @@ The site is in English at its usual URLs and in Spanish under `/es` (for example
 
 ## Deployment
 
-The site is one Docker image and runs as one container (`portfolio`) of `deployment/portfolio` (namespace `portfolio`): an unprivileged Node server (`node server/server.mjs`) on port 8080 that
+The site is one Docker image and runs as one container (`web`) of `deployment/web` (namespace `portfolio`, next to `api` and `panel`): an unprivileged Node server (`node server/server.mjs`) on port 8080 that
 
 - serves the prerendered homes (`/`, `/es`) and the static files of the build,
 - renders `/projects`, `/experience` and `/blog` (and their `/es` versions) and the RSS feeds on demand,
@@ -55,26 +55,12 @@ Repository settings the workflows need:
 
 - Variables: `DOCKERHUB_ORGANIZATION`, `DOCKERHUB_USERNAME`, `DOCKER_IMAGE`.
 - Secrets: `DOCKERHUB_TOKEN`, `SONAR_TOKEN`, `API_URL`, `AGENT_URL`, `TWINGATE_SERVICE_KEY`.
-- Environment `production` (deployments from `main` only) with the secret `KUBE_CONFIG`.
+- Environment `production` (deployments from `main` only) with the secret `KUBE_CONFIG`, a kubeconfig of the `deployer-web` ServiceAccount, whose Role can only patch and watch `deployment/web`.
 
-### Moving from the nginx + SSR sidecar pod
+### Kubernetes resources
 
-Before the first release with the single image, remove the `ssr` sidecar from `deployment/portfolio`; the `portfolio` container keeps port 8080, so the Service and the Ingress don't change:
+The manifests live in the cluster repository (`Deployments`, `Services`, `Ingress` and `RBAC` under `portfolio/web.yaml` and `portfolio/deployer-web.yaml`):
 
-```yaml
-containers:
-  - name: portfolio
-    image: <dockerhub-organization>/<image>:latest
-    ports:
-      - containerPort: 8080
-    readinessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-    livenessProbe:
-      httpGet:
-        path: /healthz
-        port: 8080
-```
-
-The `portfolio-ssr` Docker Hub repository is no longer published.
+- `deployment/web`: one container `web` on port 8080, run as the image's `node` user with a read-only root filesystem (`/tmp` as `emptyDir`), probes on `/healthz` and `NODE_OPTIONS=--max-old-space-size=128` below its 192Mi memory limit.
+- `service/web` (port 80 → 8080) and `ingress/web` for `marco.figueroa-sanchez.com` with TLS.
+- `deployer-web`: the ServiceAccount the Release workflow uses to set the image by digest and follow the rollout.
