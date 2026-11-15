@@ -1,0 +1,63 @@
+<section id="about" class="py-32 relative overflow-hidden">
+  <section class="container mx-auto px-6 relative z-10">
+    <article class="grid lg:grid-cols-2 gap-16 items-center">
+      <!-- Left Column -->
+      <section class="space-y-8">
+        <article class="animate-fade-in">
+          <span class="text-secondary-foreground text-sm font-medium tracking-wider uppercase">{{
+            m().about.eyebrow
+          }}</span>
+        </article>
+
+        <h2
+          class="text-4xl md:text-5xl font-bold leading-tight animate-fade-in animation-delay-100 text-secondary-foreground"
+        >
+          {{ m().about.heading.lead }}
+          <span class="font-serif italic font-normal text-white">{{
+            m().about.heading.accent
+          }}</span>
+        </h2>
+
+        <article class="space-y-4 text-muted-foreground animate-fade-in animation-delay-200">
+          @for (paragraph of m().about.paragraphs; track $index) {
+            <p>{{ paragraph }}</p>
+          }
+        </article>
+
+        <article class="glass rounded-2xl p-6 glow-border animate-fade-in animation-delay-300">
+          <p class="text-lg font-medium italic text-foreground">{{ m().about.quote }}</p>
+        </article>
+      </section>
+
+      <!-- Right Column -->
+      <section class="grid sm:grid-cols-2 gap-6">
+        @for (item of highlights(); track $index) {
+          <article
+            class="glass p-6 rounded-2xl animate-fade-in"
+            [style.animationDelay]="($index + 1) * 100 + 'ms'"
+            [attr.lang]="language.itemLang(item)"
+          >
+            <div
+              class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 hover:bg-primary/20"
+            >
+              <i class="{{ item.icon }} text-xl text-primary"></i>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">{{ item.title }}</h3>
+            <p class="text-sm text-muted-foreground">{{ item.description }}</p>
+          </article>
+        } @empty {
+          <!-- Empty State -->
+          <article class="glass p-6 rounded-2xl text-center sm:col-span-2 animate-fade-in">
+            <div
+              class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4"
+            >
+              <i class="fa-solid fa-star text-xl text-primary"></i>
+            </div>
+            <h3 class="text-lg font-semibold mb-2">{{ m().about.highlightsSoon }}</h3>
+            <p class="text-sm text-muted-foreground">{{ m().about.updating }}</p>
+          </article>
+        }
+      </section>
+    </article>
+  </section>
+</section>

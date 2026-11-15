@@ -1,0 +1,6 @@
+{
+  "sonarlint.connectedMode.project": {
+    "connectionId": "w0rkspace",
+    "projectKey": "w0rkspace_portfolio-web"
+  }
+}

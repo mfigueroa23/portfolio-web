@@ -1,0 +1,155 @@
+name: 'Release'
+
+# Testing and Security are not repeated here: main only accepts PRs that passed both (ruleset on
+# main). The release only scans the image it publishes, which the PR never built.
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# A newer push waits for the running release instead of cancelling it mid-deployment.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  REPOSITORY: ${{ vars.DOCKERHUB_ORGANIZATION }}/${{ vars.DOCKER_IMAGE }}
+
+jobs:
+  # Pushed only as sha-<commit>: the version and latest tags are added once the image passes the
+  # scan, so an image with critical or high CVEs is never published under them. The Angular build
+  # runs inside the Dockerfile, once on the build platform (its output is the same for every
+  # platform); API_URL and AGENT_URL are inlined at build time.
+  package:
+    name: 'Package & Push Image'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Login to Docker Hub'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 'Set up QEMU'
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+
+      - name: 'Set up Buildx'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: 'Build & Push Multi-Platform Image'
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            API_URL=${{ secrets.API_URL }}
+            AGENT_URL=${{ secrets.AGENT_URL }}
+          push: true
+          tags: ${{ env.REPOSITORY }}:sha-${{ github.sha }}
+
+  scan:
+    name: 'Image Analysis'
+    needs: package
+    uses: ./.github/workflows/security.yaml
+    permissions:
+      contents: read
+      security-events: write
+    with:
+      image: ${{ vars.DOCKERHUB_ORGANIZATION }}/${{ vars.DOCKER_IMAGE }}@${{ needs.package.outputs.digest }}
+    # Only the secret Docker Scout needs, never every repository secret.
+    secrets:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # Adds the version and latest tags to the scanned image without rebuilding it. A published
+  # version is never moved: if X.Y.Z already points to another image, the version in package.json
+  # was not bumped and the release stops before deploying.
+  promote:
+    name: 'Tag Image'
+    needs:
+      - package
+      - scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Login to Docker Hub'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: 'Set up Buildx'
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: 'Check Version Is Not Published'
+        id: version
+        env:
+          DIGEST: ${{ needs.package.outputs.digest }}
+        run: |
+          version=$(jq -r .version package.json)
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+          if ! published=$(docker buildx imagetools inspect "$REPOSITORY:$version" --format '{{.Manifest.Digest}}' 2>&1); then
+            if echo "$published" | grep -q 'not found'; then
+              exit 0
+            fi
+            echo "$published"
+            exit 1
+          fi
+          if [ "$published" != "$DIGEST" ]; then
+            echo "::error::$REPOSITORY:$version is already published. Bump the version with pnpm version <major|minor|patch> --no-git-tag-version."
+            exit 1
+          fi
+
+      - name: 'Tag Version and Latest'
+        env:
+          DIGEST: ${{ needs.package.outputs.digest }}
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          docker buildx imagetools create "$REPOSITORY@$DIGEST" \
+            --tag "$REPOSITORY:$VERSION" \
+            --tag "$REPOSITORY:latest"
+
+  # The production environment records each release under Deployments and holds KUBE_CONFIG, which
+  # only this job (and only from main) can read.
+  deploy:
+    name: 'Deploy to Kubernetes'
+    needs:
+      - package
+      - promote
+    environment:
+      name: production
+      url: https://marco.figueroa-sanchez.com
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: 'Connect to Cluster Network'
+        uses: twingate/github-action@358e205bb31e636fef1dfb706228ab60eb90c181 # v1.11
+        with:
+          service-key: ${{ secrets.TWINGATE_SERVICE_KEY }}
+
+      # Deployed by digest, so the cluster runs exactly the image this release built and scanned.
+      - name: 'Deploy Image'
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          IMAGE: ${{ env.REPOSITORY }}@${{ needs.package.outputs.digest }}
+        run: |
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          (umask 077 && printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG")
+          kubectl set image deployment/portfolio portfolio="$IMAGE" -n portfolio
+          kubectl rollout status deployment/portfolio -n portfolio --timeout=5m

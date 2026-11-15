@@ -1,0 +1,45 @@
+name: 'Testing'
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 'Lint, Tests & Build'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 'Install pnpm, Node and Dependencies'
+        uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3.1.2
+        with:
+          version: 12.6.0
+          runtime: node@26.13.0
+          cache: true
+          require-lockfile: true
+
+      - name: 'Lint'
+        run: pnpm lint
+
+      - name: 'Check Format'
+        run: pnpm format:check
+
+      - name: 'Unit Tests'
+        run: pnpm test --watch=false
+
+      - name: 'Build'
+        run: pnpm build
+
+      # Renders the server-rendered pages with the built server and fails when one of their inline
+      # scripts is missing from the CSP the image would compute, which the browser would block.
+      - name: 'Check SSR CSP'
+        run: pnpm check:csp

@@ -1,0 +1,102 @@
+@if (unavailable()) {
+  <app-unavailable />
+} @else {
+  <section class="container mx-auto px-6 pt-32 md:pt-40 pb-28">
+    <a
+      [href]="language.href('/')"
+      class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+    >
+      <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> {{ m().pages.backHome }}
+    </a>
+
+    <header class="max-w-3xl mt-8 mb-12">
+      <p class="text-secondary-foreground text-sm font-medium tracking-wider uppercase">
+        {{ m().pages.experience.eyebrow }}
+      </p>
+      <h1 class="text-4xl md:text-5xl font-bold mt-4 mb-6 text-secondary-foreground">
+        {{ m().pages.experience.heading.lead }}
+        <span class="font-serif italic font-normal text-white">{{
+          m().pages.experience.heading.accent
+        }}</span>
+      </h1>
+      <p class="text-muted-foreground">{{ m().pages.experience.intro }}</p>
+    </header>
+
+    @if (experiences.value(); as entries) {
+      @if (entries.length) {
+        <!-- Native details/summary: keyboard support, expanded state and no-JS content (D15). -->
+        <section [attr.aria-label]="m().pages.experience.listLabel" class="space-y-4">
+          @for (entry of entries; track entry.id) {
+            <details
+              class="group glass rounded-2xl border border-border open:border-primary/45 transition-colors"
+              [attr.lang]="language.itemLang(entry)"
+            >
+              <summary
+                class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6 px-6 py-5 cursor-pointer list-none [&::-webkit-details-marker]:hidden rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <span class="text-sm text-primary font-medium sm:w-44 shrink-0">{{
+                  entry.period
+                }}</span>
+                <span class="flex flex-wrap items-center gap-x-3 gap-y-1 flex-1">
+                  <span class="text-lg font-semibold">{{ entry.role }}</span>
+                  <span class="text-muted-foreground">{{ entry.company }}</span>
+                  @if (entry.current) {
+                    <span
+                      class="px-2.5 py-0.5 rounded-full bg-primary/15 text-primary text-xs font-semibold"
+                      [attr.lang]="language.itemLang(entry) && language.lang()"
+                      >{{ m().pages.experience.current }}</span
+                    >
+                  }
+                </span>
+                <i
+                  class="fa-solid fa-chevron-down text-muted-foreground transition-transform group-open:rotate-180 hidden sm:block"
+                  aria-hidden="true"
+                ></i>
+              </summary>
+              <div class="px-6 pb-6 sm:pl-56 space-y-4">
+                <p class="text-muted-foreground">{{ entry.description }}</p>
+                <div class="flex flex-wrap gap-2">
+                  @for (tech of entry.technologies; track $index) {
+                    <span
+                      class="px-3 py-1 bg-surface text-xs rounded-full text-muted-foreground border border-border/50"
+                      >{{ tech }}</span
+                    >
+                  }
+                </div>
+                @if (entry.bodyHtml) {
+                  <app-markdown-body class="block pt-2" [html]="entry.bodyHtml" />
+                }
+              </div>
+            </details>
+          }
+        </section>
+      } @else {
+        <article class="glass rounded-2xl p-12 max-w-2xl mx-auto text-center">
+          <div
+            class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4"
+          >
+            <i class="fa-solid fa-briefcase text-2xl text-primary" aria-hidden="true"></i>
+          </div>
+          <h2 class="text-xl font-semibold mb-2">{{ m().pages.experience.soon }}</h2>
+          <p class="text-sm text-muted-foreground">{{ m().pages.experience.updating }}</p>
+        </article>
+      }
+    }
+
+    @if (certificationCards().length) {
+      <section aria-labelledby="certifications" class="mt-24">
+        <p class="text-secondary-foreground text-sm font-medium tracking-wider uppercase">
+          {{ m().pages.experience.proof }}
+        </p>
+        <h2 id="certifications" class="text-3xl md:text-4xl font-bold mt-3 mb-10 scroll-mt-28">
+          {{ m().pages.experience.certifications }}
+        </h2>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          @for (cert of certificationCards(); track cert.id) {
+            <app-certification-card [certification]="cert" />
+          }
+        </div>
+      </section>
+    }
+  </section>
+}

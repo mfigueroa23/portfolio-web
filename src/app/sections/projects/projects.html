@@ -1,0 +1,69 @@
+<section id="projects" class="py-32 relative overflow-hidden">
+  <!-- Background Glows -->
+  <div class="absolute top-1/4 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+  <div class="absolute bottom-1/4 left-0 w-64 h-64 bg-highlight/5 rounded-full blur-3xl"></div>
+
+  <section class="container mx-auto px-6 relative z-10">
+    <!-- Section Header -->
+    <article class="text-center mx-auto max-w-3xl mb-16">
+      <span
+        class="text-secondary-foreground text-sm font-medium tracking-wider uppercase animate-fade-in"
+        >{{ m().projects.eyebrow }}</span
+      >
+      <h2
+        class="text-4xl md:text-5xl font-bold mt-4 mb-6 animate-fade-in animation-delay-100 text-secondary-foreground"
+      >
+        {{ m().projects.heading.lead }}
+        <span class="font-serif italic font-normal text-white">{{
+          m().projects.heading.accent
+        }}</span>
+      </h2>
+      <p class="text-muted-foreground animate-fade-in animation-delay-200">
+        {{ m().projects.intro }}
+      </p>
+    </article>
+
+    @if (projects().length) {
+      <!-- Projects Grid -->
+      <article class="grid md:grid-cols-2 gap-8">
+        @for (project of projects(); track project.id) {
+          <app-project-card
+            class="block animate-fade-in"
+            [style.animationDelay]="($index + 1) * 100 + 'ms'"
+            [project]="project"
+          />
+        }
+      </article>
+
+      <!-- View More CTA -->
+      <article class="text-center mt-12 animate-fade-in animation-delay-500">
+        <a
+          [href]="language.href('/projects')"
+          class="inline-flex items-center justify-center gap-2 min-h-11 px-6 rounded-full border border-border text-foreground text-sm font-medium hover:border-primary hover:text-primary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          {{ m().projects.viewMore }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </a>
+      </article>
+    } @else {
+      <!-- Empty State -->
+      <article
+        class="glass rounded-2xl p-12 max-w-2xl mx-auto text-center animate-fade-in animation-delay-300"
+      >
+        <div
+          class="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-4"
+        >
+          <i class="fa-solid fa-code text-2xl text-primary"></i>
+        </div>
+        <h3 class="text-xl font-semibold mb-2">{{ m().projects.soon }}</h3>
+        <p class="text-sm text-muted-foreground">{{ m().projects.soonGithub }}</p>
+      </article>
+
+      <!-- GitHub CTA -->
+      <article class="text-center mt-12 animate-fade-in animation-delay-500">
+        <app-animated-button href="https://github.com/mfigueroa23"
+          >{{ m().projects.viewAll }} <i class="fa-brands fa-github"></i
+        ></app-animated-button>
+      </article>
+    }
+  </section>
+</section>
